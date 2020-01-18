@@ -7,8 +7,8 @@ Created on Sat Jan 18 16:05:11 2020
 """
 
 import matplotlib.pyplot as plt
-import numpy as np
 import math
+import operator
 
 class Room(object):
     
@@ -90,9 +90,9 @@ class Scan(object):
         
     def create_swaths(self):
         
-        angles_min = [self.robot_angle + (i - 1) * (4*math.pi) / \
+        angles_min = [self.robot_angle + i * (2*math.pi) / \
                       self.swath_number for i in range(self.swath_number)] 
-        angles_max = [self.robot_angle + (i + 1) * (4*math.pi) / \
+        angles_max = [self.robot_angle + (i+1) * (2*math.pi) / \
                       self.swath_number for i in range(self.swath_number)]        
         swaths = list(zip(angles_min, angles_max))
         
@@ -106,7 +106,8 @@ class Scan(object):
         dx = px - rx
         dy = py - ry
         distance = math.sqrt(dx**2 + dy**2)
-        angle = np.arctan2(dy, dx)
+        angle = math.atan2(dy, dx)
+        angle = angle if angle > 0 else angle + 2*math.pi
         return (distance, angle)
     
     def closest_point_in_swath(self, 
@@ -118,7 +119,7 @@ class Scan(object):
             distance, angle = self.distance_and_angle(p)
             if angle > angle_min and angle < angle_max:
                 pts.append((distance, angle))
-            pts = sorted(pts)
+            pts.sort(key = operator.itemgetter(1))
         return pts[0]
 
     def lidar_observations_polar(self):
@@ -156,7 +157,7 @@ plt.scatter(Robot.x, Robot.y, color='green')
 plt.scatter(Goal.x, Goal.y, color='red')
 
 #  Set up a room view with a pi/4 half-angle aperture and 8 angle slices on each side of center
-rv = Scan(room, (Robot.x, Robot.y), 0, 8)
+rv = Scan(room, (Robot.x, Robot.y), Robot.heading, 8)
 
 # Get the lidar points for a particle
 observations = rv.lidar_observations_polar()
