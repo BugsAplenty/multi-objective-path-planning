@@ -1,7 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jan 18 16:05:11 2020
+
+@author: Michael Neiman
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-import copy
 
 class Room(object):
     
@@ -53,74 +60,88 @@ class Room(object):
         right_obstacle = self.map_obstacle((4.0,4.0), (10.0,4.0), 100)
         return walls + left_obstacle + right_obstacle
 
-class RoomView(object):
+
+class Point(object):
+    def __init__(self,
+                 x,
+                 y):
+        self.x, self.y = x, y
+
+class Robot(Point):
+    def __init__(self,
+                 x,
+                 y,
+                 heading):
+        super().__init__(x, y)
+        self.heading = heading
+
+class Scan(object):
     
     def __init__(self, 
-                 room_points, 
-                 angle_sweep, 
-                 sweep_number):
+                 room_points,
+                 robot_location,
+                 robot_angle,
+                 swath_number):
         
         self.room_points = room_points
-        self.angle_sweep = angle_sweep
-        self.sweep_number = sweep_number
+        self.robot_location = robot_location
+        self.robot_angle = robot_angle
+        self.swath_number = swath_number
         
-    def angle_range(self, 
-                    center):
+    def create_swaths(self):
         
-        delta = self.angle_sweep
-        n = self.sweep_number
-        return [(center - delta) + delta * i / n for i in range(2 * n + 1)]
-
-    def angle_and_distance(self, 
-                           robot_location, 
+        angles_min = [self.robot_angle + (i - 1) * (4*math.pi) / \
+                      self.swath_number for i in range(self.swath_number)] 
+        angles_max = [self.robot_angle + (i + 1) * (4*math.pi) / \
+                      self.swath_number for i in range(self.swath_number)]        
+        swaths = list(zip(angles_min, angles_max))
+        
+        return swaths
+          
+    def distance_and_angle(self, 
                            point_location):
         
-        rx, ry = robot_location
+        rx, ry = self.robot_location
         px, py = point_location
         dx = px - rx
         dy = py - ry
         distance = math.sqrt(dx**2 + dy**2)
         angle = np.arctan2(dy, dx)
-        return (angle, distance)
-
+        return (distance, angle)
+    
     def closest_point_in_swath(self, 
-                               min_angle, 
-                               max_angle, 
-                               robot_location):
+                               angle_min, 
+                               angle_max):
         
         pts = []
         for p in self.room_points:
-            angle, distance = self.angle_and_distance(robot_location, p)
-            if angle > min_angle and angle < max_angle:
-                pts.append(distance)
-        pts = sorted(pts)
-        if len(pts) > 0:
-            return pts[0]
-        return None
+            distance, angle = self.distance_and_angle(p)
+            if angle > angle_min and angle < angle_max:
+                pts.append((distance, angle))
+            pts = sorted(pts)
+        return pts[0]
 
-    def lidar_observations_polar(self, 
-                                 robot_location, 
-                                 robot_angle):
+    def lidar_observations_polar(self):
         
         pts = []
-        angles = self.angle_range(robot_angle)
-        delta = self.angle_sweep / self.sweep_number
-        for a in angles:
-            min_a = a - delta / 2.0
-            max_a = a + delta / 2.0
-            distance = self.closest_point_in_swath(min_a, 
-                                                   max_a, 
-                                                   robot_location)
-            if distance is not None:
-                pts.append((a, distance))
+        swaths = self.create_swaths()
+        for swath in swaths:
+            angle_min, angle_max = swath
+            pts.append(self.closest_point_in_swath(angle_min, angle_max))
         return pts
-    
+
 # Set the plot size        
 plt.figure(figsize=(8,8))    
     
 # Build the room map points
 r = Room()
 room = r.make_room()
+
+# Build the robot
+Robot = Robot(5.0, 1.0, 0.0)
+
+# Build goal
+Goal = Point(5.0, 9.0)
 
 # Unzip the x-y coordinates
 x, y = zip(*room)
@@ -129,16 +150,16 @@ x, y = zip(*room)
 plt.scatter(x, y)  
 
 # Plot where our robot is 
-plt.scatter(5.0, 1.0, color='green')
+plt.scatter(Robot.x, Robot.y, color='green')
 
 # Plot where your goal is
-plt.scatter(5.0, 9.0, color='red')
+plt.scatter(Goal.x, Goal.y, color='red')
 
 #  Set up a room view with a pi/4 half-angle aperture and 8 angle slices on each side of center
-rv = RoomView(room, np.pi/2, 8)
+rv = Scan(room, (Robot.x, Robot.y), 0, 8)
 
 # Get the lidar points for a particle
-observations = rv.lidar_observations_polar((5.0,1.0), 0.0)
+observations = rv.lidar_observations_polar()
 
 def print_cartesian(origin, observations):
     x0, y0 = origin
