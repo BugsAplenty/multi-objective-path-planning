@@ -107,7 +107,6 @@ class Scan(object):
         dy = py - ry
         distance = math.sqrt(dx**2 + dy**2)
         angle = math.atan2(dy, dx)
-        angle = angle if angle > 0 else angle + 2*math.pi
         return (distance, angle)
     
     def closest_point_in_swath(self, 
