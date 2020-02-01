@@ -9,6 +9,10 @@ Created on Sat Jan 18 16:05:11 2020
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Utils:
+
+TAU = 2*np.pi
+
 class Room(object):
     
     def map_range_x(self, 
@@ -97,6 +101,8 @@ class Scan(object):
     
     def convert_room_to_polar(self):
         
+        global TAU
+        
         x_room, y_room = self.room_points[:, 0], self.room_points[:, 1]
         
         x_rob = np.repeat(self.robot_location[0], 
@@ -105,42 +111,66 @@ class Scan(object):
                           np.size(self.room_points, axis=0))
         
         distance = np.sqrt(np.square(x_room-x_rob) + np.square(y_room-y_rob))
-        angle = np.arctan2(y_room-y_rob, x_room-x_rob) 
+        angle = np.mod(np.arctan2(y_room-y_rob, x_room-x_rob), TAU)
         
         return np.stack((angle, distance), axis=-1)
     
     def create_swaths(self):
         
-        tau = 2*np.pi
+        global TAU
         
-        angle_min_start = tau/self.swath_number/2
-        angle_min_stop = tau - angle_min_start
+        angle_min_start = TAU/self.swath_number/2
+        angle_min_stop = TAU - angle_min_start
         
         angle_min = np.linspace(angle_min_start, 
                                 angle_min_stop, 
                                 self.swath_number)
         
-        angle_max = np.mod(angle_min + tau/self.swath_number, tau)
+        angle_max = np.mod(angle_min + TAU/self.swath_number, TAU)
         
         return np.stack((angle_min, angle_max), axis=1)
     
     def closest_in_swath(self):
         
-        conds = self.create_swaths()
+        global TAU
+        
+        swaths = self.create_swaths()
         points = self.convert_room_to_polar()
-        points_filtered = np.zeros(self.swath_number)
         
-        for i in np.arange(8):
-            a = np.logical_and(points[:,0] > conds[i,0],
-                               points[:,0] < conds[i,1])
-            points_in_swaths = np.extract(a,points)
-            point_sorted = points_in_swaths[points_in_swaths[:,0].astype(int).argsort()]
-            points_filtered[i] = points_sorted[0]
+        points_closest = np.zeros((self.swath_number,2))
         
+        for i in np.arange(self.swath_number-1):
+            condition = np.logical_and(points[:,0] > np.minimum(swaths[i,0], 
+                                                                swaths[i,1]), 
+                                       points[:,0] < np.maximum(swaths[i,0], 
+                                                                swaths[i,1]))
+            points_filtered = points[condition]
+            points_sorted = points_filtered[points_filtered[:,1].argsort()]
+            points_closest[i] = points_sorted[0]
         
-        return points_filtered
+        condition = np.logical_or(points[:,0] > np.minimum(swaths[i,0], 
+                                                           swaths[i,1]), 
+                                  points[:,0] < np.maximum(swaths[i,0], 
+                                                           swaths[i,1]))
+        points_filtered = points[condition]
+        points_sorted = points_filtered[points_filtered[:,1].argsort()]
+        points_closest[-1] = points_sorted[0]
         
-
+        return points_closest
+    
+    def safety_distance(self):
+        points = self.closest_in_swath()
+        points_sorted = points[points[:,1].argsort()]
+        
+        return points_sorted[0]
+    
+    def reproject_scans_to_cartesian(self):
+        points = self.closest_in_swath()
+        points_cartesian = np.array([points[:,1] * np.cos(points[:,0]), 
+                                     points[:,1] * np.sin(points[:,0])])
+        points_cartesian = np.transpose(points_cartesian)
+        
+        return points_cartesian + self.robot_location
         
 # Set the plot size        
 plt.figure(1,figsize=(10,10))    
@@ -171,6 +201,14 @@ plt.scatter(Goal.x, Goal.y, color='red')
 rv = Scan(room, (Robot.x, Robot.y), Robot.heading, 8)
 b = rv.convert_room_to_polar()
 a = rv.create_swaths()
-b = rv.closest_in_swath()
+c = rv.closest_in_swath()
+d = np.transpose(np.array([c[:,1] * np.cos(c[:,0]), c[:,1] * np.sin(c[:,0])]))
+e = d + np.array([Robot.x, Robot.y])
+f = rv.reproject_scans_to_cartesian()
+plt.scatter(f[:,0], f[:,1])
+
+
+
+
 
 
