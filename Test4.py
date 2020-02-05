@@ -140,10 +140,8 @@ class Scan(object):
         points_closest = np.zeros((self.swath_number,2))
         
         for i in np.arange(self.swath_number-1):
-            condition = np.logical_and(points[:,0] > np.minimum(swaths[i,0], 
-                                                                swaths[i,1]), 
-                                       points[:,0] < np.maximum(swaths[i,0], 
-                                                                swaths[i,1]))
+            condition = np.logical_and(points[:,0] > swaths[i,0], 
+                                       points[:,0] < swaths[i,1])
             points_filtered = points[condition]
             points_sorted = points_filtered[points_filtered[:,1].argsort()]
             points_closest[i] = points_sorted[0]
@@ -207,6 +205,10 @@ e = d + np.array([Robot.x, Robot.y])
 f = rv.reproject_scans_to_cartesian()
 plt.scatter(f[:,0], f[:,1])
 
+x_beams = np.linspace(0, 10, 100)
+m = np.tan(a[:,0])
+y_beams = Robot.y + np.tile(x_beams - Robot.x, (8,1)) * m[:, np.newaxis]
+plt.scatter(np.tile(x_beams - Robot.x, (8,1))+Robot.x, y_beams)
 
 
 
