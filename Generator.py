@@ -76,7 +76,7 @@ class Point(object):
                  x,
                  y):
         self.x, self.y = x, y
-
+'''
 class Robot(Point):
     
     def __init__(self,
@@ -85,7 +85,7 @@ class Robot(Point):
                  heading):
         super().__init__(x, y)
         self.heading = heading
-        
+'''        
 class Scan(object):
   
     def __init__(self, 
@@ -144,14 +144,21 @@ class Scan(object):
                                        points[:,0] < swaths[i,1])
             points_filtered = points[condition]
             points_sorted = points_filtered[points_filtered[:,1].argsort()]
-            points_closest[i] = points_sorted[0]
+            if points_sorted.size == 0:
+                points_closest[i] = [None, None]
+            else:
+                points_closest[i] = points_sorted[0]
         
         condition = np.logical_or(points[:,0] > swaths[self.swath_number-1,0],
                                   points[:,0] < swaths[self.swath_number-1,1])
         
         points_filtered = points[condition]
         points_sorted = points_filtered[points_filtered[:,1].argsort()]
-        points_closest[-1] = points_sorted[0]
+        
+        if points_sorted.size == 0:
+            points_closest[-1] = [None, None]
+        else:
+            points_closest[-1] = points_sorted[0]
         
         return points_closest
     
@@ -159,7 +166,13 @@ class Scan(object):
         points = self.closest_in_swath()
         points_sorted = points[points[:,1].argsort()]
         
-        return points_sorted[0]
+        safety_distance_coord = points_sorted[0]
+        safety_distance = np.sqrt(np.square(self.robot_location[0] - \
+                                            safety_distance_coord[0]) + \
+                                  np.square(self.robot_location[1] - \
+                                            safety_distance_coord[1]))
+        
+        return safety_distance
     
     def reproject_scans_to_cartesian(self):
         points = self.closest_in_swath()
@@ -179,7 +192,7 @@ r = Room()
 room = r.make_room()
 
 # Build the robot
-Robot = Robot(5.0, 1.0, 0.0)
+Robot = Point(5.0, 1.0)
 
 # Build goal
 Goal = Point(5.0, 9.0)
@@ -196,11 +209,13 @@ plt.scatter(Robot.x, Robot.y, color='green')
 # Plot where your goal is
 plt.scatter(Goal.x, Goal.y, color='red')
 
+"""
 #  Set up a room view with a pi/4 half-angle aperture and 8 angle slices on each side of center
-rv = Scan(room, (Robot.x, Robot.y), Robot.heading, 8)
+rv = Scan(room, (Robot.x, Robot.y), 0.0, 8)
 b = rv.convert_room_to_polar()
 a = rv.create_swaths()
 c = rv.closest_in_swath()
+o = rv.safety_distance()
 d = np.transpose(np.array([c[:,1] * np.cos(c[:,0]), c[:,1] * np.sin(c[:,0])]))
 e = d + np.array([Robot.x, Robot.y])
 f = rv.reproject_scans_to_cartesian()
@@ -210,7 +225,7 @@ x_beams = np.linspace(0, 10, 100)
 m = np.tan(a[:,0])
 y_beams = Robot.y + np.tile(x_beams - Robot.x, (8,1)) * m[:, np.newaxis]
 plt.scatter(np.tile(x_beams - Robot.x, (8,1))+Robot.x, y_beams)
-
+"""
 
 
 
