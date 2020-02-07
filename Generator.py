@@ -8,9 +8,6 @@ Created on Sat Jan 18 16:05:11 2020
 
 import matplotlib.pyplot as plt
 import numpy as np
-import autograd.numpy as anp
-from pymoo.util.misc import stack
-from pymoo.model.problem import Problem
 
 # Utils:
 
@@ -172,7 +169,8 @@ class Scan(object):
         
         return points_cartesian + self.robot_location
 
-        
+
+
 # Set the plot size        
 plt.figure(1,figsize=(10,10),)    
     
