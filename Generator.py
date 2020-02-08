@@ -181,11 +181,6 @@ class Scan(object):
         points_cartesian = np.transpose(points_cartesian)
         
         return points_cartesian + self.robot_location
-
-
-
-# Set the plot size        
-plt.figure(1,figsize=(10,10),)    
     
 # Build the room map points
 r = Room()
@@ -196,6 +191,9 @@ Robot = Point(5.0, 1.0)
 
 # Build goal
 Goal = Point(5.0, 9.0)
+
+# Set the plot size        
+plt.figure(1,figsize=(10,10),)    
 
 # Unzip the x-y coordinates
 x, y = zip(*room)

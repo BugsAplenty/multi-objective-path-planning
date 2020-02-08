@@ -19,15 +19,15 @@ from pymoo.performance_indicator.hv import Hypervolume
 from pymoo.optimize import minimize
 
 algorithm = NSGA2(
-    pop_size=40,
-    n_offsprings=10,
+    pop_size=5,
+    n_offsprings=2,
     sampling=get_sampling("real_random"),
-    crossover=get_crossover("real_sbx", prob=0.9, eta=15),
+    crossover=get_crossover("real_sbx", prob=0.1, eta=15),
     mutation=get_mutation("real_pm", eta=20),
     eliminate_duplicates=True
 )
 
-termination = get_termination("n_gen", 40)
+termination = get_termination("n_gen", 100)
 
 class SafetyDistance(Problem):
 
@@ -35,13 +35,14 @@ class SafetyDistance(Problem):
         
         super().__init__(n_var=4, 
              n_obj=2, 
-             n_constr=6, 
+             n_constr=1, 
              xl = anp.array([0,0,0,0]),
              xu = anp.array([10,10,10,10]))        
         
     def _evaluate(self, x, out, *args, **kwargs):
             
         import Generator
+        import isintersect
         
         room = Generator.room
         Robot = Generator.Robot
@@ -147,61 +148,79 @@ class SafetyDistance(Problem):
         safety_distance = np.minimum(safety_distance)
         """
         
-        f1 = d_tot # minimize travel distance.
-        f2 = -safety_distance_min_total # maximize safety distance.
+        f1 = -safety_distance_min_total
+        f2 = d_tot
         
-        top1 = np.minimum(np.maximum(wall_right_y[0], wall_right_y[1]),
-                          np.maximum(Robot.y, y1))
-        top2 = np.minimum(np.maximum(wall_left_y[0], wall_left_y[1]),
-                          np.maximum(Robot.y, y1))
-        top3 = np.minimum(np.maximum(wall_right_y[0], wall_right_y[1]),
-                          np.maximum(y1, y2))
-        top4 = np.minimum(np.maximum(wall_left_y[0], wall_left_y[1]),
-                          np.maximum(y1, y2))
-        top5 = np.minimum(np.maximum(wall_right_y[0], wall_right_y[1]),
-                          np.maximum(y2, Goal.y))
-        top6 = np.minimum(np.maximum(wall_left_y[0], wall_left_y[1]),
-                          np.maximum(y2, Goal.y))
+        intersections1_left = np.zeros(np.size(x,0))
+        intersections1_right = np.zeros(np.size(x,0))
+        intersections2_left = np.zeros(np.size(x,0))
+        intersections2_right = np.zeros(np.size(x,0))
+        intersections3_left = np.zeros(np.size(x,0))
+        intersections3_right = np.zeros(np.size(x,0))
+        intersections_total = np.zeros(np.size(x,0))
         
-        bottom1 = np.maximum(np.minimum(wall_right_y[0], wall_right_y[1]),
-                             np.minimum(Robot.y, y1))
-        bottom2 = np.maximum(np.minimum(wall_left_y[0], wall_left_y[1]),
-                             np.minimum(Robot.y, y1)) 
-        bottom3 = np.maximum(np.minimum(wall_right_y[0], wall_right_y[1]),
-                             np.minimum(y1, y2)) 
-        bottom4 = np.maximum(np.minimum(wall_left_y[0], wall_left_y[1]),
-                             np.minimum(y1, y2)) 
-        bottom5 = np.maximum(np.minimum(wall_right_y[0], wall_right_y[1]),
-                             np.minimum(y2, Goal.y)) 
-        bottom6 = np.maximum(np.minimum(wall_left_y[0], wall_left_y[1]),
-                             np.minimum(y2, Goal.y)) 
-        
-        
-        # Constraint for path1
-        # With left obstacle
-        g1_left = bottom1 - top1
-        # With right obstacle
-        g1_right = bottom2 - top2
-        
-        # Constraint for path2
-        # With left obstacle
-        g2_left = bottom3 - top3
-        # With right obstacle
-        g2_right = bottom4 - top4
-        
-        # constraint for path3
-        # With left obstacle
-        g3_left = bottom5 - top5
-        # With right obstacle
-        g3_right = bottom6 - top6
+        for i in np.arange(np.size(x,0)):
+            intersections1_left[i] = isintersect.isintersect(Robot.x, 
+                          x1[i],
+                          Robot.y,
+                          y1[i],
+                          wall_left_x[0],
+                          wall_left_x[1],
+                          wall_left_y[0],
+                          wall_left_y[1])
+            intersections1_right[i] = isintersect.isintersect(Robot.x, 
+                          x1[i],
+                          Robot.y,
+                          y1[i],
+                          wall_right_x[0],
+                          wall_right_x[1],
+                          wall_right_y[0],
+                          wall_right_y[1])
+            intersections2_left[i] = isintersect.isintersect(x2[i], 
+                          x1[i],
+                          y2[i],
+                          y1[i],
+                          wall_left_x[0],
+                          wall_left_x[1],
+                          wall_left_y[0],
+                          wall_left_y[1])
+            intersections2_right[i] = isintersect.isintersect(x2[i], 
+                          x1[i],
+                          y2[i],
+                          y1[i],
+                          wall_right_x[0],
+                          wall_right_x[1],
+                          wall_right_y[0],
+                          wall_right_y[1])
+            intersections3_left[i] = isintersect.isintersect(Goal.x, 
+                          x1[i],
+                          Goal.y,
+                          y1[i],
+                          wall_left_x[0],
+                          wall_left_x[1],
+                          wall_left_y[0],
+                          wall_left_y[1])
+            intersections3_right[i] = isintersect.isintersect(Goal.x, 
+                          x1[i],
+                          Goal.y,
+                          y1[i],
+                          wall_right_x[0],
+                          wall_right_x[1],
+                          wall_right_y[0],
+                          wall_right_y[1])
+            intersections_total[i]= intersections1_left[i] + \
+                                    intersections1_right[i] + \
+                                    intersections2_left[i] + \
+                                    intersections2_right[i] + \
+                                    intersections3_left[i] + \
+                                    intersections3_right[i]
+                                   
+        plt.plot([x1[-1],x2[-1]],[y1[-1],y2[-1]])                            
+            
+        g = intersections_total + 6
             
         out["F"] = anp.column_stack([f1, f2])
-        out["G"] = anp.column_stack([g1_left, 
-           g1_right, 
-           g2_left, 
-           g2_right,
-           g3_left, 
-           g3_right])
+        out["G"] = anp.column_stack([g])
             
     def _calc_pareto_front(self, flatten=True, **kwargs):
         
@@ -232,40 +251,5 @@ res = minimize(problem,
                save_history=True,
                verbose=True)
 
-# get the pareto-set and pareto-front for plotting
-ps = problem.pareto_set(use_cache=False, flatten=False)
-pf = problem.pareto_front(use_cache=False, flatten=False)
 
-# Design Space
-plot = Scatter(title = "Design Space", axis_labels="x")
-plot.add(res.X, s=30, facecolors='none', edgecolors='r')
-plot.add(ps, plot_type="line", color="black", alpha=0.7)
-plot.do()
-plot.apply(lambda ax: ax.set_xlim(-0.5, 1.5))
-plot.apply(lambda ax: ax.set_ylim(-2, 2))
-plot.show()
 
-# Objective Space
-plot = Scatter(title = "Objective Space")
-plot.add(res.F)
-plot.add(pf, plot_type="line", color="black", alpha=0.7)
-plot.show()
-
-# create the performance indicator object with reference point (4,4)
-metric = Hypervolume(ref_point=np.array([1.0, 1.0]))
-
-# collect the population in each generation
-pop_each_gen = [a.pop for a in res.history]
-
-# receive the population in each generation
-obj_and_feasible_each_gen = [pop[pop.get("feasible")[:,0]].get("F") for pop in pop_each_gen]
-
-# calculate for each generation the HV metric
-hv = [metric.calc(f) for f in obj_and_feasible_each_gen]
-
-# visualze the convergence curve
-plt.plot(np.arange(len(hv)), hv, '-o')
-plt.title("Convergence")
-plt.xlabel("Generation")
-plt.ylabel("Hypervolume")
-plt.show()
